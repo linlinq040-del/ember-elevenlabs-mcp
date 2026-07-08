@@ -1,58 +1,46 @@
-import pino from 'pino';
-import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { config } from './config.js';
-
-mkdirSync(config.LOG_DIR, { recursive: true });
+import pino from "pino";
+import { config } from "./config.js";
 
 export const logger = pino({
   level: config.LOG_LEVEL,
-  transport: {
-    targets: [
-      {
-        target: 'pino/file',
-        options: {
-          destination: join(config.LOG_DIR, 'app.log'),
-          mkdir: true
-        }
-      },
-      {
-        target: 'pino-pretty',
-        level: config.LOG_LEVEL,
-        options: {
-          colorize: true,
-          translateTime: 'SYS:standard',
-          ignore: 'pid,hostname'
-        }
-      }
-    ]
-  }
-});
 
-export function createRequestLogger(requestId: string) {
-  return logger.child({ requestId });
-}
+  timestamp: pino.stdTimeFunctions.isoTime,
+
+  transport:
+    process.env.NODE_ENV === "development"
+      ? {
+          target: "pino-pretty",
+          options: {
+            colorize: true,
+            translateTime: "SYS:standard",
+            ignore: "pid,hostname"
+          }
+        }
+      : undefined
+});
 
 export function logSuccess(
   requestId: string,
-  characterCount: number,
+  characters: number,
   durationMs: number
-) {
+): void {
   logger.info({
     requestId,
-    characterCount,
-    durationMs
-  }, 'TTS request completed');
+    characters,
+    durationMs,
+    success: true
+  });
 }
 
 export function logFailure(
   requestId: string,
-  characterCount: number,
+  characters: number,
   error: unknown
-) {
+): void {
   logger.error({
     requestId,
-    characterCount,
+    characters,
+    success: false,
     error
-  }, 'TTS request failed');
+  });
 }

@@ -1,45 +1,48 @@
-const MARKDOWN_PATTERNS: RegExp[] = [
-  /```[\s\S]*?```/g,
-  /`([^`]+)`/g,
-  /\*\*(.*?)\*\*/g,
-  /\*(.*?)\*/g,
-  /__(.*?)__/g,
-  /_(.*?)_/g,
-  /~~(.*?)~~/g,
-  /^#{1,6}\s+/gm,
-  /^\>\s?/gm,
-  /^\s*[-*+]\s+/gm,
-  /^\s*\d+\.\s+/gm,
-  /\[([^\]]+)\]\(([^)]+)\)/g
-];
-
-const EMOJI_REGEX =
-  /[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu;
-
 export interface CleanTextOptions {
   removeMarkdown?: boolean;
   removeEmoji?: boolean;
 }
 
+const MARKDOWN_PATTERNS: Array<[RegExp, string]> = [
+  [/```[\s\S]*?```/g, ""],
+  [/`([^`]*)`/g, "$1"],
+  [/\*\*(.*?)\*\*/g, "$1"],
+  [/\*(.*?)\*/g, "$1"],
+  [/__(.*?)__/g, "$1"],
+  [/_(.*?)_/g, "$1"],
+  [/~~(.*?)~~/g, "$1"],
+  [/^#{1,6}\s+/gm, ""],
+  [/^\>\s?/gm, ""],
+  [/^\s*[-*+]\s+/gm, ""],
+  [/^\s*\d+\.\s+/gm, ""],
+  [/$begin:math:display$\(\[\^$end:math:display$]+)\]$begin:math:text$\[\^\)\]\+$end:math:text$/g, "$1"]
+];
+
+const EMOJI_REGEX =
+  /[\p{Extended_Pictographic}\u2600-\u27BF]/gu;
+
 export function cleanText(
   input: string,
   options: CleanTextOptions = {}
 ): string {
+  const {
+    removeMarkdown = true,
+    removeEmoji = true
+  } = options;
+
   let text = input;
 
-  if (options.removeMarkdown ?? true) {
-    for (const pattern of MARKDOWN_PATTERNS) {
-      text = text.replace(pattern, "$1");
+  if (removeMarkdown) {
+    for (const [pattern, replacement] of MARKDOWN_PATTERNS) {
+      text = text.replace(pattern, replacement);
     }
   }
 
-  if (options.removeEmoji ?? true) {
+  if (removeEmoji) {
     text = text.replace(EMOJI_REGEX, "");
   }
 
-  text = normalizeWhitespace(text);
-
-  return text.trim();
+  return normalizeWhitespace(text).trim();
 }
 
 export function normalizeWhitespace(text: string): string {

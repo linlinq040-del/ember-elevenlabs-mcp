@@ -1,7 +1,7 @@
 export interface SplitOptions {
   /**
-   * Maximum number of characters per chunk.
-   * ElevenLabs limits vary by model; this is a conservative default.
+   * Maximum characters per chunk.
+   * Conservative default for ElevenLabs.
    */
   maxCharacters?: number;
 }
@@ -9,8 +9,7 @@ export interface SplitOptions {
 const DEFAULT_MAX_CHARACTERS = 1800;
 
 /**
- * Split text into sentence-aware chunks.
- * The returned chunks preserve order.
+ * Split long text into sentence-aware chunks.
  */
 export function splitText(
   text: string,
@@ -20,6 +19,10 @@ export function splitText(
     options.maxCharacters ?? DEFAULT_MAX_CHARACTERS;
 
   const normalized = text.trim();
+
+  if (normalized.length === 0) {
+    return [];
+  }
 
   if (normalized.length <= maxCharacters) {
     return [normalized];
@@ -31,7 +34,7 @@ export function splitText(
   let current = "";
 
   for (const sentence of sentences) {
-    // Extremely long sentence fallback
+    // Extremely long sentence fallback.
     if (sentence.length > maxCharacters) {
       if (current.length > 0) {
         chunks.push(current.trim());
@@ -49,11 +52,10 @@ export function splitText(
 
     if (candidate.length <= maxCharacters) {
       current = candidate;
-      continue;
+    } else {
+      chunks.push(current.trim());
+      current = sentence;
     }
-
-    chunks.push(current.trim());
-    current = sentence;
   }
 
   if (current.length > 0) {
@@ -64,33 +66,35 @@ export function splitText(
 }
 
 /**
- * Split using punctuation whenever possible.
+ * Split text by Chinese and English sentence endings.
  */
 function splitIntoSentences(text: string): string[] {
   return text
     .split(/(?<=[。！？.!?])\s+/u)
-    .map(s => s.trim())
-    .filter(Boolean);
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 0);
 }
 
 /**
- * Fallback splitter for very long sentences.
+ * Hard split for very long sentences.
  */
 function splitHard(
   text: string,
   maxCharacters: number
 ): string[] {
-  const parts: string[] = [];
+  const result: string[] = [];
 
   let start = 0;
 
   while (start < text.length) {
-    parts.push(
-      text.slice(start, start + maxCharacters).trim()
+    result.push(
+      text
+        .slice(start, start + maxCharacters)
+        .trim()
     );
 
     start += maxCharacters;
   }
 
-  return parts;
+  return result;
 }

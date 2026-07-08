@@ -1,8 +1,8 @@
 export type ErrorCode =
   | "INVALID_REQUEST"
   | "INVALID_CONFIGURATION"
-  | "ELEVENLABS_TIMEOUT"
   | "ELEVENLABS_API_ERROR"
+  | "ELEVENLABS_TIMEOUT"
   | "AUDIO_MERGE_FAILED"
   | "AUDIO_SAVE_FAILED"
   | "CIRCUIT_BREAKER_OPEN"
@@ -12,7 +12,7 @@ export class AppError extends Error {
   constructor(
     public readonly code: ErrorCode,
     message: string,
-    public readonly status: number = 500,
+    public readonly statusCode = 500,
     public readonly cause?: unknown
   ) {
     super(message);
@@ -29,7 +29,7 @@ export function toAppError(error: unknown): AppError {
     if (error.name === "AbortError") {
       return new AppError(
         "ELEVENLABS_TIMEOUT",
-        "The ElevenLabs request timed out.",
+        "The request to ElevenLabs timed out.",
         504,
         error
       );
@@ -45,11 +45,12 @@ export function toAppError(error: unknown): AppError {
 
   return new AppError(
     "UNKNOWN_ERROR",
-    "An unknown error occurred."
+    "Unknown error.",
+    500
   );
 }
 
-export function errorResponse(error: unknown) {
+export function createErrorResponse(error: unknown) {
   const appError = toAppError(error);
 
   return {

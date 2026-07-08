@@ -1,7 +1,7 @@
-import { access, rm } from "node:fs/promises";
+import { access, rm, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
+import { basename, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { join } from "node:path";
 import { spawn } from "node:child_process";
 
 import { config } from "./config.js";
@@ -12,27 +12,24 @@ export interface MergeResult {
   audioUrl: string;
 }
 
-/**
- * Merge multiple MP3 files into one output file using ffmpeg.
- *
- * ffmpeg must be available on the host system (or bundled later with
- * ffmpeg-static in a future revision).
- */
 export async function mergeAudio(
-  inputFiles: string[]
+  files: string[]
 ): Promise<MergeResult> {
-  if (inputFiles.length === 0) {
-    throw new Error("No audio files to merge.");
+  if (files.length === 0) {
+    throw new Error("No audio files.");
   }
 
-  if (inputFiles.length === 1) {
-    const filePath = inputFiles[0];
-    const filename = filePath.split(/[\\/]/).pop()!;
+  if (files.length === 1) {
+    const filePath = files.at(0);
+
+    if (!filePath) {
+      throw new Error("Missing audio file.");
+    }
 
     return {
-      filename,
+      filename: basename(filePath),
       filePath,
-      audioUrl: `${config.PUBLIC_BASE_URL}/audio/${filename}`
+      audioUrl: `${config.PUBLIC_BASE_URL}/audio/${basename(filePath)}`
     };
   }
 
@@ -42,15 +39,17 @@ export async function mergeAudio(
   );
 
   const outputName = `${randomUUID()}.mp3`;
-  const outputPath = join(config.AUDIO_OUTPUT_DIR, outputName);
 
-  const { writeFile } = await import("node:fs/promises");
-
-  await writeFile(
-    listFile,
-    inputFiles.map(f => `file '${f}'`).join("\n"),
-    "utf8"
+  const outputPath = join(
+    config.AUDIO_OUTPUT_DIR,
+    outputName
   );
+
+  const content = files
+    .map((file) => `file '${file.replace(/'/g, "'\\''")}'`)
+    .join("\n");
+
+  await writeFile(listFile, content, "utf8");
 
   await new Promise<void>((resolve, reject) => {
     const ffmpeg = spawn("ffmpeg", [
@@ -68,21 +67,31 @@ export async function mergeAudio(
 
     ffmpeg.on("error", reject);
 
-    ffmpeg.on("close", code => {
-      code === 0
-        ? resolve()
-        : reject(new Error(`ffmpeg exited with ${code}`));
+    ffmpeg.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(
+          new Error(
+            `ffmpeg exited with code ${code}`
+          )
+        );
+      }
     });
   });
 
-  await rm(listFile, { force: true });
+  await rm(listFile, {
+    force: true
+  });
 
-  for (const file of inputFiles) {
+  for (const file of files) {
     try {
       await access(file, constants.F_OK);
-      await rm(file, { force: true });
+      await rm(file, {
+        force: true
+      });
     } catch {
-      // ignore cleanup failures
+      // ignore
     }
   }
 
